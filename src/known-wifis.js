@@ -28,6 +28,10 @@ exports.addWifi = (id, ssid, password) => {
 
 exports.removeWifi = (id) => {
   knownWifis[`${id}`] = undefined;
+  fs.writeFile(path.join(__dirname, '/wifis.json'), JSON.stringify(knownWifis), (err) => {
+    if (err) throw err;
+    console.log('wifis.json updated... done!!');
+  });
 };
 
 exports.getWifi = (id) => {

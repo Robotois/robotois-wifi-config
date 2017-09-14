@@ -1,38 +1,47 @@
 const fs = require('fs');
 const command = require('./commands');
 
-const dnsmasqConf = () => `interface=wlan0      # Use interface wlan0
-listen-address=10.10.1.1 # Explicitly specify the address to listen on
+const dnsConf = () => `interface=wlan0      # Use interface wlan0
+listen-address=192.168.0.1 # Explicitly specify the address to listen on
 bind-interfaces      # Bind to the interface to make sure we aren't sending things elsewhere
 server=8.8.8.8       # Forward DNS requests to Google DNS
 domain-needed        # Don't forward short names
 bogus-priv           # Never forward addresses in the non-routed address spaces.
-dhcp-range=10.10.1.50,10.10.1.150,12h # Assign IP addresses between 10.10.1.50 and 10.10.1.150 with a 12 hour lease time  `
+dhcp-range=192.168.0.50,192.168.0.150,12h # Assign IP addresses between 192.168.0.50 and 192.168.0.150 with a 12 hour lease time  `;
 
-const forwardReplacer = (match, p1, offset, string) => 'net.ipv4.ip_forward=1';
-const noForwardReplacer = (match, p1, offset, string) => '#net.ipv4.ip_forward=1';
+// const forwardReplacer = (match, p1, offset, string) => 'net.ipv4.ip_forward=1';
+// const noForwardReplacer = (match, p1, offset, string) => '#net.ipv4.ip_forward=1';
 const iptablesReplacer = (match, p1, offset, string) =>
   '\niptables-restore < /etc/iptables.ipv4.nat\n'.concat(p1);
 
-exports.config = (asHotspot) => {
-  if (asHotspot) {
-    fs.writeFile('/etc/dnsmasq.conf', dnsmasqConf(), (err) => {
-      if (err) throw err;
-      console.log('Dnsmasq conf... done!!');
-    })
-  }
+const dnsmasqConf = () => {
+  fs.access('/etc/dnsmasq.conf.orig', (err) => {
+    if (!err) {
+      console.log('dnsmasq[dnsmasq.conf] backup exists!!');
+      return;
+    }
+    command('sudo mv /etc/dnsmasq.conf /etc/dnsmasq.conf.orig');
+    // fs.openSync('/etc/dnsmasq.conf', 'w');
+    fs.writeFile('/etc/dnsmasq.conf', dnsConf(), (error) => {
+      if (error) throw error;
+      console.log('dnsmasq[dnsmasq.conf] backup created!!');
+    });
+  });
+};
 
+const ipv4Forwarding = () => {
   fs.readFile('/etc/sysctl.conf', 'utf8', (err, data) => {
     if (err) throw err;
-    const notForwarding = data.match(/(#net.ipv4.ip_forward=1)/gi);
+    const notForwarding = data.match(/#net.ipv4.ip_forward=1/gi);
     // console.log('forwarding: ', notForwarding);
     if (notForwarding) {
-      const newData = data.replace(/(#net.ipv4.ip_forward=1)/, forwardReplacer);
-      fs.writeFile('/etc/sysctl.conf', newData, (err) => {
-        if (err) throw err;
-        console.log('sysctl.conf forwarding!!');
+      const newData = data.replace(/#net.ipv4.ip_forward=1/, 'net.ipv4.ip_forward=1');
+      // console.log('dnsmasq[sysctl.conf] ipv4Forwarding: ', newData);
+      fs.writeFile('/etc/sysctl.conf', newData, (error) => {
+        if (error) throw error;
+        console.log('dnsmasq[sysctl.conf] ipv4 forwarding!!');
       })
-      command('sudo sh -c "echo 1 > /proc/sys/net/ipv4/ip_forward"');
+      // command('sudo sh -c "echo 1 > /proc/sys/net/ipv4/ip_forward"');
     }
   });
 
@@ -41,7 +50,7 @@ exports.config = (asHotspot) => {
    */
   fs.access('/etc/iptables.ipv4.nat', (err) => {
     if (!err) {
-      console.log('iptables.ipv4.nat already exists!!');
+      console.log('dnsmasq[iptables.ipv4.nat] already exists!!');
       return;
     }
     command('sudo iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE');
@@ -57,11 +66,15 @@ exports.config = (asHotspot) => {
     if (!hasIPTables) {
       const newData = data.replace(/\n(exit 0)/, iptablesReplacer);
       // console.log(newData);
-      fs.writeFile('/etc/rc.local', newData, (err) => {
-        if (err) throw err;
-        console.log('rc.local iptables-restore!!');
-      })
+      fs.writeFile('/etc/rc.local', newData, (error) => {
+        if (error) throw error;
+        console.log('dnsmasq[rc.local] done!!');
+      });
     }
   });
+};
 
+exports.config = () => {
+  dnsmasqConf();
+  ipv4Forwarding();
 };
