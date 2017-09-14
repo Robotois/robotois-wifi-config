@@ -42,3 +42,5 @@ exports.getWifi = (id) => {
   console.log(`Wifi with id: ${id} does not exist in the database...`);
   return undefined;
 };
+
+exports.getAll = () => knownWifis;
