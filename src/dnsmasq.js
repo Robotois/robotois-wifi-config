@@ -18,13 +18,14 @@ const dnsmasqConf = () => {
   fs.access('/etc/dnsmasq.conf.orig', (err) => {
     if (!err) {
       console.log('dnsmasq[dnsmasq.conf] backup exists!!');
-      return;
+      // return;
+    } else {
+      command('sudo mv /etc/dnsmasq.conf /etc/dnsmasq.conf.orig');
+      console.log('dnsmasq[dnsmasq.conf] backup created!!');
     }
-    command('sudo mv /etc/dnsmasq.conf /etc/dnsmasq.conf.orig');
     // fs.openSync('/etc/dnsmasq.conf', 'w');
     fs.writeFile('/etc/dnsmasq.conf', dnsConf(), (error) => {
       if (error) throw error;
-      console.log('dnsmasq[dnsmasq.conf] backup created!!');
     });
   });
 };
