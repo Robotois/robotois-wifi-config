@@ -13,4 +13,4 @@ const wifiAP = require('../');
 // };
 
 // killWpa();
-wifiAP.startAP();
+wifiAP.startAP('ImpresoraPosopto', '12345678');

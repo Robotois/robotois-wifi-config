@@ -77,5 +77,5 @@ const ipv4Forwarding = () => {
 
 exports.config = () => {
   dnsmasqConf();
-  ipv4Forwarding();
+  // ipv4Forwarding();
 };

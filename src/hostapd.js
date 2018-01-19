@@ -45,8 +45,8 @@ wpa_passphrase=${pass}
 # Use AES, instead of TKIP
 rsn_pairwise=CCMP`;
 
-const hostapdSettings = () => {
-  fs.writeFile('/etc/hostapd/hostapd.conf', wifiSettings('Robotois', '12345678'), (error) => {
+const hostapdSettings = (ssid, pass) => {
+  fs.writeFile('/etc/hostapd/hostapd.conf', wifiSettings(ssid, pass), (error) => {
     if (error) throw error;
     console.log('hostapd[wifiSettings]... done!!');
   });
@@ -68,7 +68,7 @@ const hostapdDefault = () => {
   });
 };
 
-exports.config = () => {
-  hostapdSettings();
+exports.config = (ssid, pass) => {
+  hostapdSettings(ssid, pass);
   hostapdDefault();
 };
