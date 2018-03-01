@@ -1,5 +1,6 @@
 const fs = require('fs');
 const { apTemplate, contentReplacer } = require('./templates');
+const fileWriter = require('./fileWriter');
 
 const denyWlan = asHotspot => (asHotspot ? 'denyinterfaces wlan0' : '#denyinterfaces wlan0');
 
@@ -16,41 +17,23 @@ iface wlan0 inet manual
 
 const networkInterfaces = asHotspot => (asHotspot ? hotspotIP : wpaSupplicant);
 
-const denyInterfaces = (asHotspot) => {
-  fs.readFile('/etc/dhcpcd.conf', 'utf8', (err, data) => {
-    if (err) throw err;
-    const hasTemplate = data.match(/(#--ap-begin)\n(.+\n)(#--ap-end)/gi) !== null;
-    // console.log('network[interfaces] noTemplate: ', hasTemplate);
-    const newData = hasTemplate ?
-      data.replace(/(#--ap-begin)\n(.+\n)(#--ap-end)/gi, contentReplacer(denyWlan(asHotspot))) :
-      [data, apTemplate(denyWlan(asHotspot))].join('\n');
-    // console.log('network[interfaces] newData: ', newData);
-    fs.writeFile('/etc/dhcpcd.conf', newData, (error) => {
-      if (err) throw error;
-      console.log('network[dhcpcd]... done!!');
-    });
-  });
+const denyInterfaces = asHotspot => (data) => {
+  const hasTemplate = data.match(/(#--ap-begin)\n(.+\n)(#--ap-end)/gi) !== null;
+  return hasTemplate ?
+    data.replace(/(#--ap-begin)\n(.+\n)(#--ap-end)/gi, contentReplacer(denyWlan(asHotspot))) :
+    [data, apTemplate(denyWlan(asHotspot))].join('\n');
 };
 
-const interfaces = (asHotspot) => {
-  fs.readFile('/etc/network/interfaces', 'utf8', (err, data) => {
-    if (err) throw err;
-    const hasTemplate = data.match(/(#--ap-begin)\n(.+(\n.+)+\n)(#--ap-end)/gi) !== null;
-    // console.log('network[interfaces] hasTemplate: ', hasTemplate);
-    const newData = hasTemplate ?
-      data.replace(/(#--ap-begin)\n(.+(\n.+)+\n)(#--ap-end)/gi, contentReplacer(networkInterfaces(asHotspot), 4)) :
-      data.replace(/(.+wlan0(\n.+)+conf)/gi, apTemplate(networkInterfaces(asHotspot)));
-    // console.log('network[interfaces] newData: ', newData);
-    fs.writeFile('/etc/network/interfaces', newData, (error) => {
-      if (err) throw error;
-      console.log('network[interfaces]... done!!');
-    });
-  });
+const interfaces = asHotspot => (data) => {
+  const hasTemplate = data.match(/(#--ap-begin)\n(.+(\n.+)+\n)(#--ap-end)/gi) !== null;
+  return hasTemplate ?
+    data.replace(/(#--ap-begin)\n(.+(\n.+)+\n)(#--ap-end)/gi, contentReplacer(networkInterfaces(asHotspot), 4)) :
+    data.replace(/(.+wlan0(\n.+)+conf)/gi, apTemplate(networkInterfaces(asHotspot)));
 };
 
 exports.config = (asHotspot) => {
-  denyInterfaces(asHotspot);
-  interfaces(asHotspot);
+  fileWriter('/etc/dhcpcd.conf', denyInterfaces(asHotspot));
+  fileWriter('/etc/network/interfaces', interfaces(asHotspot));
 };
 
 const wpaTemplate = wifi => `

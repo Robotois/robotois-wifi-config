@@ -1,7 +1,7 @@
 const fs = require('fs');
 const command = require('./commands');
 
-const dnsConf = () => `interface=wlan0      # Use interface wlan0
+const dnsConf = `interface=wlan0      # Use interface wlan0
 listen-address=192.168.0.1 # Explicitly specify the address to listen on
 bind-interfaces      # Bind to the interface to make sure we aren't sending things elsewhere
 server=8.8.8.8       # Forward DNS requests to Google DNS
@@ -18,37 +18,44 @@ const dnsmasqConf = () => {
   fs.access('/etc/dnsmasq.conf.orig', (err) => {
     if (!err) {
       console.log('dnsmasq[dnsmasq.conf] backup exists!!');
-      // return;
-    } else {
-      command('sudo mv /etc/dnsmasq.conf /etc/dnsmasq.conf.orig');
-      console.log('dnsmasq[dnsmasq.conf] backup created!!');
+      return;
     }
+    command('sudo cp /etc/dnsmasq.conf /etc/dnsmasq.conf.orig');
+    console.log('dnsmasq[dnsmasq.conf] backup created!!');
     // fs.openSync('/etc/dnsmasq.conf', 'w');
-    fs.writeFile('/etc/dnsmasq.conf', dnsConf(), (error) => {
-      if (error) throw error;
+    fs.writeFile('/etc/dnsmasq.conf', dnsConf, (error) => {
+      if (error) {
+        console.error(error);
+        return;
+      }
+      console.log('dnsmasq[dnsmasq.conf] created!!');
     });
   });
 };
 
-const ipv4Forwarding = () => {
+const forward = () => {
   fs.readFile('/etc/sysctl.conf', 'utf8', (err, data) => {
-    if (err) throw err;
+    if (err) {
+      console.error(err);
+      return;
+    }
     const notForwarding = data.match(/#net.ipv4.ip_forward=1/gi);
-    // console.log('forwarding: ', notForwarding);
     if (notForwarding) {
       const newData = data.replace(/#net.ipv4.ip_forward=1/, 'net.ipv4.ip_forward=1');
-      // console.log('dnsmasq[sysctl.conf] ipv4Forwarding: ', newData);
       fs.writeFile('/etc/sysctl.conf', newData, (error) => {
-        if (error) throw error;
-        console.log('dnsmasq[sysctl.conf] ipv4 forwarding!!');
-      })
-      // command('sudo sh -c "echo 1 > /proc/sys/net/ipv4/ip_forward"');
+        if (error) {
+          console.error(error);
+          return;
+        }
+        console.log('"/etc/sysctl.conf" ipv4 forwarding!!');
+      });
+    } else {
+      console.log('"/etc/sysctl.conf" already forwarding!!');
     }
   });
+};
 
-  /*
-    IP forward settings
-   */
+const iptables = () => {
   fs.access('/etc/iptables.ipv4.nat', (err) => {
     if (!err) {
       console.log('dnsmasq[iptables.ipv4.nat] already exists!!');
@@ -59,20 +66,36 @@ const ipv4Forwarding = () => {
     command('sudo iptables -A FORWARD -i wlan0 -o eth0 -j ACCEPT');
     command('sudo sh -c "iptables-save > /etc/iptables.ipv4.nat"');
   });
+};
 
+const rcLocal = () => {
   fs.readFile('/etc/rc.local', 'utf8', (err, data) => {
-    if (err) throw err;
+    if (err) {
+      console.error(err);
+      return;
+    }
     const hasIPTables = data.match(/iptables-restore/gi);
     // console.log(data);
     if (!hasIPTables) {
       const newData = data.replace(/\n(exit 0)/, iptablesReplacer);
       // console.log(newData);
       fs.writeFile('/etc/rc.local', newData, (error) => {
-        if (error) throw error;
+        if (error) {
+          console.error(error);
+          return;
+        }
         console.log('dnsmasq[rc.local] done!!');
       });
+    } else {
+      console.log('dnsmasq[rc.local] already done!!');
     }
   });
+};
+
+const ipv4Forwarding = () => {
+  forward();
+  iptables();
+  rcLocal();
 };
 
 exports.config = () => {

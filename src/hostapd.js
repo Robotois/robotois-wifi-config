@@ -45,30 +45,41 @@ wpa_passphrase=${pass}
 # Use AES, instead of TKIP
 rsn_pairwise=CCMP`;
 
-const hostapdSettings = () => {
-  fs.writeFile('/etc/hostapd/hostapd.conf', wifiSettings('Robotois', '12345678'), (error) => {
-    if (error) throw error;
-    console.log('hostapd[wifiSettings]... done!!');
+const hostapdSettings = (ssid, psk) => {
+  fs.writeFile('/etc/hostapd/hostapd.conf', wifiSettings(ssid, psk), (error) => {
+    if (error) {
+      console.error(error);
+      return;
+    }
+    console.log('"/etc/hostapd/hostapd.conf" done!!');
   });
 };
 
 const hostapdDefault = () => {
   fs.readFile('/etc/default/hostapd', 'utf8', (err, data) => {
-    if (err) throw err;
+    if (err) {
+      console.error(err);
+      return;
+    }
     const noConf = data.match(/#DAEMON_CONF=""/gi);
     // console.log(data);
     if (noConf) {
       const newData = data.replace(/(#DAEMON_CONF="")/gi, 'DAEMON_CONF="/etc/hostapd/hostapd.conf"');
       // console.log(newData);
       fs.writeFile('/etc/default/hostapd', newData, (error) => {
-        if (error) throw error;
-        console.log('hostapd[DAEMON_CONF] done!!');
+        if (error) {
+          console.error(error);
+          return;
+        }
+        console.log('"/etc/default/hostapd" done!!');
       });
+    } else {
+      console.log('"/etc/default/hostapd" already done!!');
     }
   });
 };
 
-exports.config = () => {
-  hostapdSettings();
+exports.config = (ssid = 'Robotois', psk = '12345678') => {
+  hostapdSettings(ssid, psk);
   hostapdDefault();
 };
